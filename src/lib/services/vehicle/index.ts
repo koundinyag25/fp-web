@@ -1,0 +1,1 @@
+export { vehicleService } from "./vehicleService";

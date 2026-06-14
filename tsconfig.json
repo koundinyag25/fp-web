@@ -15,7 +15,9 @@
     "allowImportingTsExtensions": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] }
   },
   "include": ["src"]
 }

@@ -1,76 +1,83 @@
-:root {
-  --bg: #0f1115;
-  --surface: #181b21;
-  --border: #2a2f38;
-  --text: #e6e8eb;
-  --muted: #9aa3af;
-  --accent: #3b82f6;
-  --ok: #22c55e;
-  --warn: #f59e0b;
-  --danger: #ef4444;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+/* Local-first fonts (bundled, no CDN). */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  /* Forge canvas: deep-navy base + subtle technical dot grid, shared by every
+     page. Opaque surface-container panels float on top. */
+  body {
+    margin: 0;
+    @apply text-on-surface font-ui text-body-md antialiased;
+    background-color: #0b1326;
+    background-image: radial-gradient(rgb(135 146 154 / 0.16) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  /* Hide scrollbars app-wide while keeping scroll behaviour (wheel, trackpad,
+     touch, keyboard all still work) — design preference, the visible bars were
+     distracting against the dark canvas. */
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* legacy Edge/IE */
+  }
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none; /* WebKit: Chrome/Safari/Edge */
+  }
 }
 
-* {
-  box-sizing: border-box;
+@layer components {
+  /* Glass surface: semi-transparent panel + backdrop blur (modals, floating bars). */
+  .pg-glass {
+    background: rgb(23 31 51 / 0.7);
+    backdrop-filter: blur(12px);
+  }
+
+  /* Animated teal scan-line accent. Host must be `relative overflow-hidden`. */
+  .pg-scanline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+    animation: pg-scan 3s linear infinite;
+  }
 }
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
+@keyframes pg-scan {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
 }
 
+/* Links default to the teal primary; components override as needed. */
 a {
-  color: var(--accent);
+  color: #38bdf8;
   text-decoration: none;
-}
-
-button {
-  font: inherit;
-  padding: 0.5rem 0.9rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-}
-button:hover:not(:disabled) {
-  border-color: var(--accent);
-}
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.container {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 1.5rem;
-}
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-.row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.muted {
-  color: var(--muted);
-}
-
-.badge {
-  font-size: 0.75rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
 }

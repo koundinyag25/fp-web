@@ -1,115 +1,171 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
-import { api } from "../../lib/api";
+import type { ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Button } from "@/atoms/Button";
+import { Spinner } from "@/atoms/Spinner";
+import { useToast } from "@/hooks/useToast";
+import { useDriverStats } from "@/hooks/driver/useDriverStats";
+import { useShiftActions } from "@/hooks/shift/useShiftActions";
+import { useShiftToday } from "@/hooks/shift/useShiftToday";
+import { DriverMetrics } from "@/molecules/DriverMetrics";
+import { TripCard } from "@/molecules/TripCard";
+import { VehicleCard } from "@/molecules/VehicleCard";
 
-interface TodayResponse {
-  date: string;
-  canStart: boolean;
-  allocation: { _id: string; vehicleId: { reg: string; type: string } } | null;
-  activeShift: { _id: string; status: string } | null;
-  deliveries: Delivery[];
-  orders: { _id: string }[];
-}
+const Shell = ({
+  children,
+  max = "max-w-md",
+}: {
+  children: ReactNode;
+  max?: string;
+}) => (
+  <div
+    className={`mx-auto flex min-h-screen w-full ${max} flex-col px-4 pb-10`}
+  >
+    <header className="flex h-14 shrink-0 items-center justify-between">
+      <span className="font-mono text-code-md font-bold uppercase tracking-wider text-on-surface">
+        FleetPanda
+      </span>
+      <Link
+        to="/"
+        className="text-body-sm text-on-surface-variant hover:text-on-surface"
+      >
+        ← personas
+      </Link>
+    </header>
+    {children}
+  </div>
+);
 
-interface Delivery {
-  _id: string;
-  sequence: number;
-  status: string;
-  orderId: {
-    quantity: number;
-    destinationId?: { name: string };
-    productId?: { name: string; unit: string };
-  } | null;
-}
-
-export default function DriverHome() {
+const DriverHome = () => {
   const { driverId = "" } = useParams();
-  const qc = useQueryClient();
-  const todayKey = ["today", driverId];
+  const navigate = useNavigate();
+  const { show } = useToast();
+  const { data, isLoading, isError } = useShiftToday(driverId);
+  const stats = useDriverStats(driverId);
+  const shift = useShiftActions(driverId);
 
-  const { data, isLoading, isError } = useQuery<TodayResponse>({
-    queryKey: todayKey,
-    queryFn: async () => (await api.get("/shifts/today", { params: { driverId } })).data,
-    refetchInterval: 5_000,
-  });
+  if (isLoading) {
+    return (
+      <Shell>
+        <div className="flex flex-1 items-center justify-center">
+          <Spinner label="Loading your day…" />
+        </div>
+      </Shell>
+    );
+  }
+  if (isError || !data) {
+    return (
+      <Shell>
+        <p className="text-on-surface-variant">Could not reach the API.</p>
+      </Shell>
+    );
+  }
 
-  const onSuccess = () => qc.invalidateQueries({ queryKey: todayKey });
+  const vehicle = data.vehicle ?? data.allocation?.vehicleId ?? null;
 
-  const startShift = useMutation({ mutationFn: () => api.post("/shifts", { driverId }), onSuccess });
-  const sendGps = useMutation({ mutationFn: () => api.post(`/drivers/${driverId}/gps`), onSuccess });
-  const startDrive = useMutation({ mutationFn: () => api.post(`/drivers/${driverId}/drive/start`), onSuccess });
-  const stopDrive = useMutation({ mutationFn: () => api.post(`/drivers/${driverId}/drive/stop`), onSuccess });
-  const endShift = useMutation({
-    mutationFn: (shiftId: string) => api.post(`/shifts/${shiftId}/end`),
-    onSuccess,
-  });
-  const complete = useMutation({
-    mutationFn: (id: string) => api.post(`/deliveries/${id}/complete`),
-    onSuccess,
-  });
-  const fail = useMutation({
-    mutationFn: (id: string) => api.post(`/deliveries/${id}/fail`, { reason: "Could not deliver" }),
-    onSuccess,
-  });
+  // Active shift → reveal the day's trips, even if there's no allocation for
+  // TODAY (a shift can still be open from a previous day — the fleet map shows
+  // it as active, so the driver must see it too). Checked before the no-vehicle
+  // block so an on-shift driver is never told "no vehicle today".
+  if (data.activeShift) {
+    // The active stop is the one in transit (the truck is on it); otherwise the
+    // earliest stop still to do.
+    const current =
+      data.deliveries.find((d) => d.status === "in_transit") ??
+      data.deliveries.find(
+        (d) => d.status !== "completed" && d.status !== "failed",
+      );
 
-  if (isLoading) return <div className="container">Loading…</div>;
-  if (isError || !data) return <div className="container">Could not reach the API.</div>;
-
-  return (
-    <div className="container">
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <h1>Driver</h1>
-        <Link to="/" className="muted">
-          ← personas
-        </Link>
-      </div>
-
-      <div className="card">
-        <h2>Today · {data.date}</h2>
-        {!data.allocation ? (
-          <p className="muted">No vehicle allocated today — shift can't start (FR-SV-2).</p>
-        ) : (
-          <p>
-            Vehicle <strong>{data.allocation.vehicleId.reg}</strong> ({data.allocation.vehicleId.type})
+    // Openable: the active stop (to act on) or a finished one (to review). A
+    // future pending stop is locked until the earlier trips are done.
+    const canOpen = (status: string, id: string) =>
+      status === "completed" || status === "failed" || id === current?._id;
+    const openTrip = (status: string, id: string) => {
+      if (canOpen(status, id)) navigate(`/driver/${driverId}/trip/${id}`);
+      else
+        show({
+          tone: "info",
+          message: "Finish your current trip before you start this one.",
+        });
+    };
+    return (
+      <Shell max="max-w-3xl">
+        <div className="mb-3 flex items-center justify-between rounded border border-border-hairline bg-surface-container px-3 py-2">
+          <span className="text-body-sm text-on-surface-variant">
+            Vehicle{" "}
+            <span className="font-mono text-on-surface">{vehicle?.reg ?? "—"}</span>
+          </span>
+          <Button
+            variant="danger"
+            onClick={() => shift.end.mutate(data.activeShift!._id)}
+            disabled={shift.end.isPending}
+          >
+            End shift
+          </Button>
+        </div>
+        <h2 className="mb-2 text-headline-md text-on-surface">Today's trips</h2>
+        {data.deliveries.length === 0 ? (
+          <p className="text-body-md text-on-surface-variant">
+            No trips assigned for today.
           </p>
-        )}
-
-        {!data.activeShift ? (
-          <button disabled={!data.canStart || startShift.isPending} onClick={() => startShift.mutate()}>
-            Start shift
-          </button>
         ) : (
-          <div className="row">
-            <button onClick={() => sendGps.mutate()} disabled={sendGps.isPending}>
-              Send GPS update
-            </button>
-            <button onClick={() => startDrive.mutate()}>Start driving</button>
-            <button onClick={() => stopDrive.mutate()}>Stop</button>
-            <button onClick={() => endShift.mutate(data.activeShift!._id)}>End shift</button>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {data.deliveries.map((d) => (
+              <TripCard
+                key={d._id}
+                delivery={d}
+                current={d._id === current?._id}
+                locked={!canOpen(d.status, d._id)}
+                onOpen={() => openTrip(d.status, d._id)}
+              />
+            ))}
           </div>
         )}
-      </div>
+      </Shell>
+    );
+  }
 
-      {data.deliveries.length > 0 && (
-        <div className="card">
-          <h2>Deliveries</h2>
-          {data.deliveries.map((d) => (
-            <div key={d._id} className="row" style={{ justifyContent: "space-between" }}>
-              <span>
-                #{d.sequence + 1} · {d.orderId?.productId?.name} {d.orderId?.quantity}
-                {d.orderId?.productId?.unit ? ` ${d.orderId.productId.unit}` : ""} →{" "}
-                {d.orderId?.destinationId?.name} <span className="badge">{d.status}</span>
-              </span>
-              {d.status !== "completed" && d.status !== "failed" && (
-                <span className="row">
-                  <button onClick={() => complete.mutate(d._id)}>Complete</button>
-                  <button onClick={() => fail.mutate(d._id)}>Fail</button>
-                </span>
-              )}
-            </div>
-          ))}
+  // No active shift and nothing allocated today → blocked, contact admin.
+  if (!data.allocation || !vehicle) {
+    return (
+      <Shell>
+        <div className="rounded-lg border border-border-hairline bg-surface-container p-5">
+          <p className="text-headline-md text-on-surface">No vehicle today</p>
+          <p className="mt-2 text-body-md text-on-surface-variant">
+            You don't have a vehicle allotted for {data.date}. Contact your
+            admin for vehicle allotment.
+          </p>
         </div>
-      )}
-    </div>
+        <Button variant="primary" className="mt-4" disabled>
+          Start shift
+        </Button>
+      </Shell>
+    );
+  }
+
+  // Allocated, no active shift → landing: hero vehicle + metrics + Start shift.
+  return (
+    <Shell>
+      <VehicleCard
+        reg={vehicle.reg}
+        type={vehicle.type}
+        capacity={vehicle.capacity}
+      />
+      <div className="mt-5">
+        <p className="mb-2 font-mono text-label-caps uppercase tracking-wider text-on-surface-variant">
+          Last 3 months
+        </p>
+        <DriverMetrics stats={stats.data} loading={stats.isLoading} />
+      </div>
+      <Button
+        variant="primary"
+        className="mt-6"
+        disabled={!data.canStart || shift.start.isPending}
+        onClick={() => shift.start.mutate()}
+      >
+        Start shift
+      </Button>
+    </Shell>
   );
-}
+};
+
+export default DriverHome;

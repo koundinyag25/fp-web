@@ -1,0 +1,13 @@
+{
+  "layers": ["pages", "organisms", "molecules", "atoms", "hooks", "services", "utils", "config"],
+  "map": {
+    "src/pages": "pages",
+    "src/organisms": "organisms",
+    "src/molecules": "molecules",
+    "src/atoms": "atoms",
+    "src/hooks": "hooks",
+    "src/lib/services": "services",
+    "src/utils": "utils",
+    "src/config": "config"
+  }
+}
