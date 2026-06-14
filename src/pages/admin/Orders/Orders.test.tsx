@@ -18,11 +18,21 @@ const orders = [
 ];
 
 const handle = (ordersPage: { items: unknown[]; nextCursor: string | null }) =>
-  m.get.mockImplementation((url: string) => {
+  m.get.mockImplementation((url: string, opts?: { params?: { type?: string } }) => {
     if (url === "/orders/counts")
       return Promise.resolve({ data: { pending: 4, assigned: 3, in_transit: 2, completed: 12, failed: 1 } });
     if (url === "/orders") return Promise.resolve({ data: ordersPage });
-    if (url === "/locations") return Promise.resolve({ data: { items: [{ _id: "h1", name: "Central Hub", type: "hub" }], nextCursor: null } });
+    if (url === "/locations")
+      // Hubs and terminals are distinct pools, so source ≠ destination in the form.
+      return Promise.resolve({
+        data: {
+          items:
+            opts?.params?.type === "terminal"
+              ? [{ _id: "t1", name: "North Terminal", type: "terminal" }]
+              : [{ _id: "h1", name: "Central Hub", type: "hub" }],
+          nextCursor: null,
+        },
+      });
     if (url === "/products") return Promise.resolve({ data: { items: [{ _id: "pr1", name: "Diesel", unit: "litre" }], nextCursor: null } });
     if (url === "/drivers") return Promise.resolve({ data: { items: [{ _id: "d1", name: "Asha Rao" }, { _id: "d9", name: "Bhavna K" }], nextCursor: null } });
     return Promise.resolve({ data: {} });

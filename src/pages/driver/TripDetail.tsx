@@ -34,7 +34,7 @@ const TripDetail = () => {
 
   const [started, setStarted] = useState(false);
   const [failOpen, setFailOpen] = useState(false);
-
+  console.log("TripDetail data:", data);
   // Key the live marker off the ACTIVE SHIFT's vehicle — that's what GPS pings
   // are keyed by. The today allocation can be absent (e.g. a shift still open
   // from a previous day) or point at a different vehicle, which would leave the

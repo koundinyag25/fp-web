@@ -23,6 +23,7 @@ interface OrderFormModalProps {
 
 interface Errors {
   quantity?: string;
+  destination?: string;
 }
 
 const OrderForm = ({ editing, hubs, terminals, products, onClose, onSave, saving }: Omit<OrderFormModalProps, "open">) => {
@@ -48,10 +49,12 @@ const OrderForm = ({ editing, hubs, terminals, products, onClose, onSave, saving
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const qty = Number(quantity);
-    if (quantity === "" || Number.isNaN(qty) || qty < 1) {
-      setErrors({ quantity: "Quantity must be at least 1." });
-      return;
-    }
+    const errs: Errors = {};
+    if (quantity === "" || Number.isNaN(qty) || qty < 1) errs.quantity = "Quantity must be at least 1.";
+    if (sourceHubId && destinationId && sourceHubId === destinationId)
+      errs.destination = "Source and destination must be different.";
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     onSave({
       sourceHubId,
       destinationId,
@@ -75,7 +78,7 @@ const OrderForm = ({ editing, hubs, terminals, products, onClose, onSave, saving
             ))}
           </Select>
         </FormField>
-        <FormField label="Destination">
+        <FormField label="Destination" error={errors.destination}>
           <Select value={destinationId} onChange={(e) => setDestinationId(e.target.value)}>
             {terminals.map((t) => (
               <option key={t._id} value={t._id}>
