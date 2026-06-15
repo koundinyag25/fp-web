@@ -15,27 +15,40 @@ interface Props {
   saving?: boolean;
 }
 
+interface Errors {
+  name?: string;
+  costPrice?: string;
+  sellingPrice?: string;
+}
+
 const ProductForm = ({ editing, onClose, onSave, saving }: Omit<Props, "open">) => {
   const [name, setName] = useState(editing?.name ?? "");
   const [unit, setUnit] = useState(editing?.unit ?? "litre");
-  const [error, setError] = useState<string | undefined>();
+  const [costPrice, setCostPrice] = useState(editing ? String(editing.costPrice) : "");
+  const [sellingPrice, setSellingPrice] = useState(editing ? String(editing.sellingPrice) : "");
+  const [errors, setErrors] = useState<Errors>({});
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setError("Name is required.");
-      return;
-    }
-    onSave({ name: name.trim(), unit });
+    const cost = Number(costPrice);
+    const sell = Number(sellingPrice);
+    const errs: Errors = {};
+    if (!name.trim()) errs.name = "Name is required.";
+    if (costPrice === "" || Number.isNaN(cost) || cost < 0) errs.costPrice = "Cost price must be 0 or more.";
+    if (sellingPrice === "" || Number.isNaN(sell) || sell < 0)
+      errs.sellingPrice = "Selling price must be 0 or more.";
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    onSave({ name: name.trim(), unit, costPrice: cost, sellingPrice: sell });
   };
 
   return (
     <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
-      <FormField label="Name" error={error}>
+      <FormField label="Name" error={errors.name}>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          invalid={!!error}
+          invalid={!!errors.name}
           placeholder="e.g. Bio-Diesel"
         />
       </FormField>
@@ -48,6 +61,34 @@ const ProductForm = ({ editing, onClose, onSave, saving }: Omit<Props, "open">) 
           ))}
         </Select>
       </FormField>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormField label="Cost price" hint="$ per unit" error={errors.costPrice}>
+          <Input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            className="font-mono"
+            value={costPrice}
+            onChange={(e) => setCostPrice(e.target.value)}
+            invalid={!!errors.costPrice}
+            placeholder="0.00"
+          />
+        </FormField>
+        <FormField label="Selling price" hint="$ per unit" error={errors.sellingPrice}>
+          <Input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            className="font-mono"
+            value={sellingPrice}
+            onChange={(e) => setSellingPrice(e.target.value)}
+            invalid={!!errors.sellingPrice}
+            placeholder="0.00"
+          />
+        </FormField>
+      </div>
       <footer className="mt-auto flex flex-col justify-end gap-3 pt-6 md:mt-6 md:flex-row">
         <Button type="button" variant="secondary" onClick={onClose}>
           Cancel

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { Brand } from "@/atoms/Brand";
 import { Button } from "@/atoms/Button";
 import { Spinner } from "@/atoms/Spinner";
 import { useToast } from "@/hooks/useToast";
@@ -21,9 +22,7 @@ const Shell = ({
     className={`mx-auto flex min-h-screen w-full ${max} flex-col px-4 pb-10`}
   >
     <header className="flex h-14 shrink-0 items-center justify-between">
-      <span className="font-mono text-code-md font-bold uppercase tracking-wider text-on-surface">
-        FleetPanda
-      </span>
+      <Brand />
       <Link
         to="/"
         className="text-body-sm text-on-surface-variant hover:text-on-surface"

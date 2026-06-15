@@ -6,8 +6,8 @@ import type { Product } from "@/types";
 import { InventoryEditor, type StockRow } from "./InventoryEditor";
 
 const products: Product[] = [
-  { _id: "p1", name: "Diesel", unit: "litre" },
-  { _id: "p2", name: "Petrol", unit: "litre" },
+  { _id: "p1", name: "Diesel", unit: "litre", costPrice: 3.1, sellingPrice: 3.89 },
+  { _id: "p2", name: "Petrol", unit: "litre", costPrice: 2.95, sellingPrice: 3.75 },
 ];
 
 // Stateful harness so user interactions flow through value/onChange.

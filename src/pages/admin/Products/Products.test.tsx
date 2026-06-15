@@ -9,7 +9,7 @@ import { http } from "@/utils/http";
 import Products from "./Products";
 
 const m = http as unknown as { get: Mock; post: Mock; put: Mock; delete: Mock };
-const prod = { _id: "p1", name: "Diesel", unit: "litre" };
+const prod = { _id: "p1", name: "Diesel", unit: "litre", costPrice: 3.1, sellingPrice: 3.89 };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -26,8 +26,17 @@ describe("Products page", () => {
     await userEvent.click(screen.getByRole("button", { name: /New product/ }));
     await userEvent.type(screen.getByLabelText("Name"), "CNG");
     await userEvent.selectOptions(screen.getByLabelText("Unit"), "kg");
+    await userEvent.type(screen.getByLabelText("Cost price"), "2.50");
+    await userEvent.type(screen.getByLabelText("Selling price"), "3.25");
     await userEvent.click(screen.getByRole("button", { name: "Save product" }));
-    await waitFor(() => expect(m.post).toHaveBeenCalledWith("/products", { name: "CNG", unit: "kg" }));
+    await waitFor(() =>
+      expect(m.post).toHaveBeenCalledWith("/products", {
+        name: "CNG",
+        unit: "kg",
+        costPrice: 2.5,
+        sellingPrice: 3.25,
+      })
+    );
   });
 
   it("requires a name", async () => {
@@ -47,7 +56,14 @@ describe("Products page", () => {
     await userEvent.clear(name);
     await userEvent.type(name, "Bio-Diesel");
     await userEvent.click(screen.getByRole("button", { name: "Save product" }));
-    await waitFor(() => expect(m.put).toHaveBeenCalledWith("/products/p1", { name: "Bio-Diesel", unit: "litre" }));
+    await waitFor(() =>
+      expect(m.put).toHaveBeenCalledWith("/products/p1", {
+        name: "Bio-Diesel",
+        unit: "litre",
+        costPrice: 3.1,
+        sellingPrice: 3.89,
+      })
+    );
   });
 
   it("deletes a product after confirmation", async () => {

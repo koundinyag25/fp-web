@@ -164,6 +164,8 @@ export interface Product {
   _id: string;
   name: string;
   unit: string;
+  costPrice: number;
+  sellingPrice: number;
 }
 
 export type InventoryBand = "low" | "warn" | "ok";

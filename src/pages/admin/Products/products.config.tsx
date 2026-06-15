@@ -10,9 +10,37 @@ interface ColumnActions {
   onDelete: (product: Product) => void;
 }
 
+const money = (n: number | undefined): string => `$${(n ?? 0).toFixed(2)}`;
+
 export const getProductColumns = ({ onEdit, onDelete }: ColumnActions): Column<Product>[] => [
   { key: "name", header: "Name" },
   { key: "unit", header: "Unit", render: (prod) => <Chip>{prod.unit}</Chip> },
+  {
+    key: "cost",
+    header: "Cost",
+    render: (prod) => (
+      <span className="font-mono text-code-md text-on-surface-variant">{money(prod.costPrice)}</span>
+    ),
+  },
+  {
+    key: "sell",
+    header: "Sell",
+    render: (prod) => <span className="font-mono text-code-md">{money(prod.sellingPrice)}</span>,
+  },
+  {
+    key: "margin",
+    header: "Margin",
+    render: (prod) => {
+      const m = (prod.sellingPrice ?? 0) - (prod.costPrice ?? 0);
+      const pct = prod.costPrice ? Math.round((m / prod.costPrice) * 100) : 0;
+      const tone = m > 0 ? "text-success" : m < 0 ? "text-critical" : "text-on-surface-variant";
+      return (
+        <span className={`font-mono text-code-md ${tone}`}>
+          {money(m)} <span className="text-outline">({pct}%)</span>
+        </span>
+      );
+    },
+  },
   {
     key: "actions",
     header: "Actions",
