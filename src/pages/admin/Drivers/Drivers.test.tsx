@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { MockIntersectionObserver } from "@/test/mocks";
@@ -35,6 +35,43 @@ describe("Drivers page", () => {
     await userEvent.type(screen.getByLabelText("Phone"), "+91 90000 22222");
     await userEvent.click(screen.getByRole("button", { name: "Save driver" }));
     await waitFor(() => expect(m.post).toHaveBeenCalledWith("/drivers", expect.objectContaining({ name: "Vik" })));
+  });
+
+  it("requires a name and a license before submitting", async () => {
+    renderWithProviders(<Drivers />);
+    await screen.findByText("Asha Rao");
+    await userEvent.click(screen.getByRole("button", { name: /New driver/ }));
+    // Submit a blank form: name, phone, and license all invalid.
+    await userEvent.click(screen.getByRole("button", { name: "Save driver" }));
+    expect(screen.getByText("Name is required.")).toBeInTheDocument();
+    expect(screen.getByText("License is required.")).toBeInTheDocument();
+    expect(m.post).not.toHaveBeenCalled();
+  });
+
+  it("passes the debounced search term as the q param", async () => {
+    renderWithProviders(<Drivers />);
+    await screen.findByText("Asha Rao");
+    await userEvent.type(screen.getByPlaceholderText(/Search by name/), "asha");
+    await waitFor(() =>
+      expect(m.get).toHaveBeenCalledWith("/drivers", expect.objectContaining({ params: expect.objectContaining({ q: "asha" }) }))
+    );
+  });
+
+  it("passes applied filters as the filters param", async () => {
+    renderWithProviders(<Drivers />);
+    await screen.findByText("Asha Rao");
+    await userEvent.click(screen.getByText("Filters"));
+    await userEvent.click(screen.getByRole("button", { name: /Add filter/ }));
+    // Drivers expose only the always-on Created at / Updated at date filters.
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: "2026-01-01" } });
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() =>
+      expect(m.get).toHaveBeenCalledWith(
+        "/drivers",
+        expect.objectContaining({ params: expect.objectContaining({ filters: expect.stringContaining("createdAt") }) })
+      )
+    );
   });
 
   it("edits a driver", async () => {

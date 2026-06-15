@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { FilterRow } from "./FilterRow";
@@ -26,5 +26,21 @@ describe("FilterRow", () => {
     expect(onFieldChange).toHaveBeenCalledWith("createdAt");
     await userEvent.click(screen.getByRole("button", { name: "Remove filter" }));
     expect(onRemove).toHaveBeenCalled();
+  });
+
+  it("falls back to the first field's operators when the row field is unknown", () => {
+    render(
+      <FilterRow
+        fields={fields}
+        row={{ field: "ghost", op: "in", values: [] }}
+        onFieldChange={vi.fn()}
+        onOpChange={vi.fn()}
+        onValuesChange={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+    // field[0] is a select field → its operator options are offered
+    const opSelect = screen.getAllByRole("combobox")[1];
+    expect(within(opSelect).getByRole("option", { name: "is any of" })).toBeInTheDocument();
   });
 });

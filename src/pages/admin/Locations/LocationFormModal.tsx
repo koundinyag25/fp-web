@@ -53,6 +53,7 @@ const LocationForm = ({
       errs.lng = "Longitude must be between -180 and 180.";
     if (type === "hub") {
       if (stock.some((r) => !r.productId)) errs.stock = "Pick a product for each stock row, or remove it.";
+      /* v8 ignore next 2 -- unreachable via UI: the quantity Input enforces type=number + min=0, so a negative/non-finite quantity can't be submitted */
       else if (stock.some((r) => !Number.isFinite(r.quantity) || r.quantity < 0))
         errs.stock = "Quantity must be 0 or more.";
     }

@@ -5,14 +5,25 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { MockEventSource } from "@/test/mocks";
 import { renderWithProviders } from "@/test/utils";
 
-vi.mock("react-leaflet", () => ({
-  MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="map">{children}</div>,
-  TileLayer: () => <div data-testid="tile" />,
-  Marker: ({ children }: { children: ReactNode }) => <div data-testid="marker">{children}</div>,
-  Polyline: () => <div data-testid="polyline" />,
-  Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  useMap: () => ({ flyTo: () => {}, getZoom: () => 11 }),
-}));
+vi.mock("react-leaflet", async () => {
+  const { forwardRef } = await import("react");
+  // Marker forwards its ref to a host node so FleetMap's callback ref runs on
+  // mount (set) and unmount (delete). The layer is a DOM div, so the
+  // component's `markersRef.current.get(id)?.openPopup?.()` safely no-ops.
+  const Marker = forwardRef<HTMLDivElement, { children?: ReactNode }>(({ children }, ref) => (
+    <div data-testid="marker" ref={ref}>
+      {children}
+    </div>
+  ));
+  return {
+    MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="map">{children}</div>,
+    TileLayer: () => <div data-testid="tile" />,
+    Marker,
+    Polyline: () => <div data-testid="polyline" />,
+    Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    useMap: () => ({ flyTo: () => {}, getZoom: () => 11 }),
+  };
+});
 
 // AutoSizer measures 0 in jsdom; feed the map a fixed size so it renders.
 vi.mock("react-virtualized-auto-sizer", () => ({
@@ -105,6 +116,42 @@ describe("FleetMap", () => {
     await screen.findByTestId("marker");
     await userEvent.type(screen.getByPlaceholderText("Driver / vehicle"), "zzz");
     await waitFor(() => expect(screen.queryByTestId("marker")).not.toBeInTheDocument());
+  });
+
+  it("falls back to the idle marker color and omits the destination line for a bare row", async () => {
+    // No deliveryStatus → `?? "idle"`; an unknown status would also hit the
+    // `?? FLEET_STATUS_COLOR.idle` color fallback; no destinationId.name →
+    // the popup's `: null` arm (no "→ …" line).
+    m.get.mockImplementation((url: string) => {
+      if (url.startsWith("/fleet/route")) return Promise.resolve({ data: null });
+      return Promise.resolve({
+        data: [
+          {
+            shiftId: "s2",
+            driver: { _id: "d2", name: "Ravi K" },
+            vehicle: { _id: "v2", reg: "KA02CD5678", type: "tanker" },
+            position: { lat: 12.9, lng: 77.5, ts: "t" },
+            // deliveryStatus omitted, currentDelivery omitted
+          },
+          {
+            shiftId: "s3",
+            driver: { _id: "d3", name: "Maya S" },
+            vehicle: { _id: "v3", reg: "KA03EF9012", type: "tanker" },
+            position: { lat: 12.91, lng: 77.51, ts: "t" },
+            // unknown status → not in FLEET_STATUS_COLOR → idle color fallback
+            deliveryStatus: "mystery",
+          },
+        ],
+      });
+    });
+    renderWithProviders(<FleetMap />);
+    await waitFor(() => expect(screen.getAllByTestId("marker").length).toBe(2));
+    const bare = screen
+      .getAllByTestId("marker")
+      .find((el) => el.textContent?.includes("KA02CD5678"))!;
+    expect(within(bare).getByText("KA02CD5678")).toBeInTheDocument();
+    expect(bare).toHaveTextContent("status: idle");
+    expect(bare).not.toHaveTextContent("→"); // destination line omitted
   });
 
   it("manually refreshes the active fleet", async () => {

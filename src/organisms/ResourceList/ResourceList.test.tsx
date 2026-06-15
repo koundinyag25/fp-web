@@ -47,4 +47,14 @@ describe("ResourceList", () => {
     );
     expect(screen.getByText("Filters")).toBeInTheDocument();
   });
+
+  it("falls back to empty fields/filters when only onFiltersChange is wired", () => {
+    // filterFields and filters omitted → the `?? []` fallbacks supply them.
+    render(
+      <MemoryRouter>
+        <ResourceList {...base} onFiltersChange={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("Filters")).toBeInTheDocument();
+  });
 });

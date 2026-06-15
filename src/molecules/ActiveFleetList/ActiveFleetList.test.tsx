@@ -53,4 +53,28 @@ describe("ActiveFleetList", () => {
     render(<ActiveFleetList rows={[]} selectedId={null} onSelect={vi.fn()} />);
     expect(screen.getByText(/no active vehicles/i)).toBeInTheDocument();
   });
+
+  it("falls back gracefully when vehicle/driver/delivery data is missing", async () => {
+    const onSelect = vi.fn();
+    const sparse: ActiveVehicle[] = [
+      {
+        shiftId: "s9",
+        vehicle: null,
+        driver: null,
+        position: null,
+        deliveryStatus: null,
+        currentDelivery: null,
+      },
+    ];
+    render(<ActiveFleetList rows={sparse} selectedId="s9" onSelect={onSelect} />);
+    expect(screen.getByText("—")).toBeInTheDocument(); // reg fallback
+    expect(screen.getByText("Unassigned")).toBeInTheDocument(); // driver fallback
+    // deliveryStatus null → "idle" shown both as the pill status and the no-dest line
+    expect(screen.getAllByText("idle").length).toBeGreaterThan(0);
+    // vid falls back to shiftId, so the card is marked selected
+    expect(screen.getByRole("button")).toHaveAttribute("aria-pressed", "true");
+    // clicking does nothing because there's no vehicle._id
+    await userEvent.click(screen.getByRole("button"));
+    expect(onSelect).not.toHaveBeenCalled();
+  });
 });

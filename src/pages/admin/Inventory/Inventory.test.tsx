@@ -82,6 +82,43 @@ describe("Inventory dashboard", () => {
     );
   });
 
+  it("renders a dash for a missing cell and omits the unit when absent", async () => {
+    m.get.mockImplementation((url: string) => {
+      if (url === "/inventory")
+        return Promise.resolve({
+          data: {
+            thresholds: { low: 20, warn: 50 },
+            rows: [
+              {
+                locationId: "h1",
+                locationName: "Central Hub",
+                type: "hub",
+                products: [
+                  // No `unit` on this cell → the unit span is omitted.
+                  { productId: "p1", productName: "Diesel", qty: 80, band: "ok" },
+                  { productId: "p2", productName: "Petrol", unit: "litre", qty: 60, band: "ok" },
+                ],
+              },
+              {
+                locationId: "t1",
+                locationName: "North Terminal",
+                type: "terminal",
+                // Missing p2 entirely → that cell falls back to "—".
+                products: [{ productId: "p1", productName: "Diesel", unit: "litre", qty: 35, band: "warn" }],
+              },
+            ],
+          },
+        });
+      return Promise.resolve({ data: { items: [], nextCursor: null } });
+    });
+    renderWithProviders(<Inventory />);
+    expect(await screen.findByText("North Terminal")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument(); // Petrol @ North Terminal missing
+    // The unit-less Diesel cell shows just the number, no "litre" suffix beside 80.
+    const dieselCell = screen.getByText("80");
+    expect(dieselCell.textContent).toBe("80");
+  });
+
   it("offers Location and Product filters via the shared FilterBuilder (FR-IN-3)", async () => {
     renderWithProviders(<Inventory />);
     await screen.findByText("North Terminal");

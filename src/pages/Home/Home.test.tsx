@@ -23,6 +23,23 @@ describe("Home", () => {
       screen.getByRole("button", { name: /admin dashboard/i }),
     ).toBeInTheDocument();
   });
+  it("renders a driver's phone when present", async () => {
+    m.get.mockResolvedValue({
+      data: {
+        items: [
+          { _id: "d1", name: "Asha Rao", phone: "+91 90000 11111" },
+          { _id: "d2", name: "Bala Iyer" },
+        ],
+      },
+    });
+    renderWithProviders(<Home />);
+    // Driver with a phone → number is shown.
+    expect(await screen.findByText("+91 90000 11111")).toBeInTheDocument();
+    // Driver without a phone → still listed, just no number row.
+    expect(
+      screen.getByRole("button", { name: /Bala Iyer/ }),
+    ).toBeInTheDocument();
+  });
   it("shows loading skeletons", () => {
     m.get.mockReturnValue(new Promise(() => {}));
     renderWithProviders(<Home />);

@@ -17,6 +17,20 @@ const orders = [
   { _id: "o2", productId: { name: "Petrol" }, quantity: 200, sourceHubId: { name: "Central Hub" }, destinationId: { name: "West Depot" }, deliveryDate: "2026-06-14", assignedDriverId: null, status: "pending" },
 ];
 
+// A pending (so editable) order whose nested refs carry _ids — the edit form
+// seeds its selects/inputs from these.
+const editableOrder = {
+  _id: "o2",
+  productId: { _id: "pr1", name: "Diesel", unit: "litre" },
+  quantity: 200,
+  sourceHubId: { _id: "h1", name: "Central Hub" },
+  destinationId: { _id: "t1", name: "North Terminal" },
+  deliveryDate: "2026-06-20",
+  startTime: "08:15",
+  assignedDriverId: { _id: "d1", name: "Asha Rao" },
+  status: "pending",
+};
+
 const handle = (ordersPage: { items: unknown[]; nextCursor: string | null }) =>
   m.get.mockImplementation((url: string, opts?: { params?: { type?: string } }) => {
     if (url === "/orders/counts")
@@ -106,6 +120,89 @@ describe("Orders page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Assign" })); // open the picker
     await userEvent.click(await screen.findByRole("button", { name: "Bhavna K" })); // picking assigns immediately
     await waitFor(() => expect(m.patch).toHaveBeenCalledWith("/orders/o2/assign", { driverId: "d9" }));
+  });
+
+  it("edits an order: seeds the form from the row and PATCHes (update path)", async () => {
+    handle({ items: [editableOrder], nextCursor: null });
+    renderWithProviders(<Orders />);
+    await screen.findByText("Diesel");
+
+    // The row's edit button (pending → editable). The modal heading shares the
+    // text, so scope to the button via its accessible label.
+    await userEvent.click(screen.getByRole("button", { name: "Edit order" }));
+    expect(await screen.findByRole("heading", { name: "Edit order" })).toBeInTheDocument();
+    // Edit mode seeds the submit label and the quantity from the order.
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Quantity")).toHaveValue(200);
+
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(m.patch).toHaveBeenCalledWith(
+        "/orders/o2",
+        expect.objectContaining({ quantity: 200, startTime: "08:15", assignedDriverId: "d1" })
+      )
+    );
+    expect(await screen.findByText("Order updated.")).toBeInTheDocument();
+  });
+
+  it("blocks submit when quantity is invalid (validation branch)", async () => {
+    handle({ items: orders, nextCursor: null });
+    renderWithProviders(<Orders />);
+    await screen.findByText("Asha Rao");
+    await userEvent.click(screen.getByRole("button", { name: /New order/ }));
+
+    // Empty quantity → invalid; submit shows the error and never POSTs.
+    await userEvent.click(screen.getByRole("button", { name: "Create order" }));
+    expect(await screen.findByText("Quantity must be at least 1.")).toBeInTheDocument();
+    expect(m.post).not.toHaveBeenCalled();
+
+    // Below the minimum is also rejected.
+    await userEvent.type(screen.getByLabelText("Quantity"), "0");
+    await userEvent.click(screen.getByRole("button", { name: "Create order" }));
+    expect(screen.getByText("Quantity must be at least 1.")).toBeInTheDocument();
+    expect(m.post).not.toHaveBeenCalled();
+  });
+
+  it("blocks submit when source and destination are the same hub/terminal", async () => {
+    // Same id for the only hub and terminal so source === destination.
+    m.get.mockImplementation((url: string, opts?: { params?: { type?: string } }) => {
+      if (url === "/orders/counts") return Promise.resolve({ data: {} });
+      if (url === "/orders") return Promise.resolve({ data: { items: orders, nextCursor: null } });
+      if (url === "/locations")
+        return Promise.resolve({ data: { items: [{ _id: "same", name: "Shared Yard", type: opts?.params?.type }], nextCursor: null } });
+      if (url === "/products") return Promise.resolve({ data: { items: [{ _id: "pr1", name: "Diesel", unit: "litre" }], nextCursor: null } });
+      return Promise.resolve({ data: { items: [], nextCursor: null } });
+    });
+    renderWithProviders(<Orders />);
+    await screen.findByText("Asha Rao");
+    await userEvent.click(screen.getByRole("button", { name: /New order/ }));
+    await userEvent.type(screen.getByLabelText("Quantity"), "10");
+    await userEvent.click(screen.getByRole("button", { name: "Create order" }));
+
+    expect(await screen.findByText("Source and destination must be different.")).toBeInTheDocument();
+    expect(m.post).not.toHaveBeenCalled();
+  });
+
+  it("shows a product fallback dash and omits the unit when product has no unit", async () => {
+    m.get.mockImplementation((url: string) => {
+      if (url === "/orders/counts") return Promise.resolve({ data: {} });
+      if (url === "/orders")
+        return Promise.resolve({
+          data: {
+            items: [
+              // No productId at all → "—" fallback; another with name but no unit.
+              { ...orders[1], _id: "o3", productId: null, quantity: 50 },
+              { ...orders[1], _id: "o4", productId: { name: "Petrol" }, quantity: 75 },
+            ],
+            nextCursor: null,
+          },
+        });
+      return Promise.resolve({ data: { items: [], nextCursor: null } });
+    });
+    renderWithProviders(<Orders />);
+    expect(await screen.findByText("—")).toBeInTheDocument(); // missing product name
+    expect(screen.getByText("50")).toBeInTheDocument(); // quantity with no unit suffix
+    expect(screen.getByText("75")).toBeInTheDocument();
   });
 
   it("loads the next page on scroll", async () => {

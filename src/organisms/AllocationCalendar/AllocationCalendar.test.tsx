@@ -68,6 +68,30 @@ describe("AllocationCalendar", () => {
     expect(screen.queryByText(/no vehicles match/i)).not.toBeInTheDocument();
   });
 
+  it("shows the loading-more spinner while the next page is fetching", () => {
+    renderCalendar({ hasMore: true, isLoadingMore: true });
+    expect(screen.getByText("Loading more vehicles…")).toBeInTheDocument();
+  });
+
+  it("ignores allocations missing a vehicle id or date when indexing cells", () => {
+    // Neither malformed allocation should map to a cell — the empty affordance
+    // stays, exercising the `a.vehicleId?._id && a.date` guard's false arms.
+    render(
+      <AllocationCalendar
+        vehicles={vehicles}
+        days={days}
+        allocations={[
+          { _id: "bad1", vehicleId: undefined, driverId: { _id: "d1", name: "Ghost" }, date: days[0].date },
+          { _id: "bad2", vehicleId: { _id: "v1", reg: "KA01AB1234", type: "tanker" }, driverId: { _id: "d1", name: "Ghost" }, date: "" },
+        ] as unknown as Allocation[]}
+        onAllocate={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+    expect(screen.queryByText("Ghost")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(`Allocate KA01AB1234 on ${days[0].date}`)).toBeInTheDocument();
+  });
+
   it("loads more vehicle rows when the sentinel scrolls into view", () => {
     const onLoadMore = vi.fn();
     render(

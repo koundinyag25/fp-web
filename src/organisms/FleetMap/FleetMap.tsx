@@ -1,15 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { AutoSizer } from "react-virtualized-auto-sizer";
-import {
-  MapContainer,
-  Marker,
-  Polyline,
-  Popup,
-  TileLayer,
-  useMap,
-} from "react-leaflet";
-import { divIcon } from "leaflet";
+import { MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet";
 import { SearchInput } from "@/atoms/SearchInput";
 import { FLEET_STATUS_COLOR, MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM } from "@/config/fleet";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -23,77 +15,8 @@ import { useFleetStream, type LivePing } from "@/hooks/fleet/useFleetStream";
 import { ActiveFleetList } from "@/molecules/ActiveFleetList";
 import { LiveIndicator } from "@/molecules/LiveIndicator";
 import { PageHeader } from "@/molecules/PageHeader";
-
-// Distinct endpoint markers: a slate square for the start (origin), a green pin
-// for the destination — so neither looks like the vehicle dot.
-const START_ICON = divIcon({
-  className: "",
-  html:
-    '<div style="width:14px;height:14px;background:#94a3b8;border:2px solid #0b1326;' +
-    'border-radius:3px;box-shadow:0 0 0 3px rgba(148,163,184,0.25)"></div>',
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
-});
-const END_ICON = divIcon({
-  className: "",
-  html:
-    '<svg width="22" height="28" viewBox="0 0 24 24" fill="#22c55e" stroke="#0b1326" ' +
-    'stroke-width="1.5" stroke-linejoin="round"><path d="M12 2C8.1 2 5 5.1 5 9c0 4.9 7 13 ' +
-    '7 13s7-8.1 7-13c0-3.9-3.1-7-7-7z"/><circle cx="12" cy="9" r="2.6" fill="#0b1326"/></svg>',
-  iconSize: [22, 28],
-  iconAnchor: [11, 28],
-});
-
-// Driver marker: a truck glyph in a status-coloured disc (white when selected).
-const TRUCK_SVG =
-  '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" ' +
-  'stroke-linejoin="round" style="width:60%;height:60%"><path d="M14 18V6a1 1 0 0 0-1-1H3a1 1 0 0 0-1 ' +
-  '1v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62' +
-  'l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>';
-
-const truckIcon = (color: string, selected: boolean) => {
-  const size = selected ? 30 : 24;
-  return divIcon({
-    className: "",
-    html:
-      `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};` +
-      `border:2px solid ${selected ? "#ffffff" : "#0b1326"};display:flex;align-items:center;` +
-      `justify-content:center;box-shadow:0 0 6px rgba(0,0,0,.55)">${TRUCK_SVG}</div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
-};
-
-/** Flies to a focus point (the selected route's start) when it changes. */
-const FleetMapController = ({ focus }: { focus: [number, number] | null }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (focus && typeof map?.flyTo === "function") {
-      map.flyTo(focus, Math.max(map.getZoom?.() ?? 12, 13), { duration: 0.6 });
-    }
-  }, [focus, map]);
-  return null;
-};
-
-/**
- * Leaflet caches its container size at init and doesn't notice CSS resizes, so a
- * flex/responsive layout leaves it grey or mis-sized. AutoSizer feeds the map
- * explicit pixel dims; whenever they change (mount, window resize) we re-sync
- * Leaflet with invalidateSize.
- */
-const MapInvalidate = ({
-  width,
-  height,
-}: {
-  width: number;
-  height: number;
-}) => {
-  const map = useMap();
-  useEffect(() => {
-    if (map && typeof map.invalidateSize === "function") map.invalidateSize();
-  }, [map, width, height]);
-  return null;
-};
+import { FleetMapController, MapInvalidate } from "./MapControls";
+import { END_ICON, START_ICON, truckIcon } from "./markers";
 
 /**
  * Live fleet map (FR-LM). Full-bleed dark map with a floating live-status pill

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { renderWithProviders } from "@/test/utils";
@@ -88,6 +88,46 @@ describe("Locations page", () => {
       expect(m.post).toHaveBeenCalledWith(
         "/locations",
         expect.objectContaining({ type: "hub", name: "Stocked Hub", inventory: { p: 500 } })
+      )
+    );
+  });
+
+  it("requires a name and a product for every stock row", async () => {
+    renderWithProviders(<Locations />);
+    await screen.findByText("Central Hub");
+    await userEvent.click(screen.getByRole("button", { name: /New location/ }));
+    // Leave name blank, give valid coords, and add a stock row without picking a product.
+    await userEvent.type(screen.getByLabelText("Latitude"), "12.5");
+    await userEvent.type(screen.getByLabelText("Longitude"), "77.1");
+    await userEvent.click(screen.getByRole("button", { name: /add product/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Save location" }));
+    expect(screen.getByText("Name is required.")).toBeInTheDocument();
+    expect(screen.getByText("Pick a product for each stock row, or remove it.")).toBeInTheDocument();
+    expect(m.post).not.toHaveBeenCalled();
+  });
+
+  it("passes the debounced search term as the q param", async () => {
+    renderWithProviders(<Locations />);
+    await screen.findByText("Central Hub");
+    await userEvent.type(screen.getByPlaceholderText(/Search/), "hub");
+    await waitFor(() =>
+      expect(m.get).toHaveBeenCalledWith("/locations", expect.objectContaining({ params: expect.objectContaining({ q: "hub" }) }))
+    );
+  });
+
+  it("passes applied filters as the filters param", async () => {
+    renderWithProviders(<Locations />);
+    await screen.findByText("Central Hub");
+    await userEvent.click(screen.getByText("Filters"));
+    await userEvent.click(screen.getByRole("button", { name: /Add filter/ }));
+    await userEvent.selectOptions(screen.getByDisplayValue("Type"), "createdAt");
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: "2026-01-01" } });
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() =>
+      expect(m.get).toHaveBeenCalledWith(
+        "/locations",
+        expect.objectContaining({ params: expect.objectContaining({ filters: expect.stringContaining("createdAt") }) })
       )
     );
   });

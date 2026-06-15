@@ -20,4 +20,15 @@ describe("useFleetStream", () => {
     expect(result.current.pings.current.get("v1")).toEqual({ lat: 3, lng: 4, ts: "t2" });
     expect(result.current.lastPingAt.current).not.toBeNull();
   });
+
+  it("flips status to error when the stream errors", () => {
+    const { result } = renderHook(() => useFleetStream());
+    act(() => MockEventSource.last().emit("error", {}));
+    expect(result.current.status).toBe("error");
+  });
+
+  it("encodes params into the stream URL", () => {
+    renderHook(() => useFleetStream({ status: "in_transit" }));
+    expect(MockEventSource.last().url).toContain("status=in_transit");
+  });
 });

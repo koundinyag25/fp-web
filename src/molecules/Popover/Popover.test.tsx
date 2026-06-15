@@ -21,4 +21,20 @@ describe("Popover", () => {
     await userEvent.click(screen.getByText("outside"));
     expect(screen.queryByText("panel")).not.toBeInTheDocument();
   });
+
+  it("anchors the panel to the right when align is 'right'", async () => {
+    render(
+      <Popover align="right" trigger={() => <span>open</span>}>
+        {() => <div>panel</div>}
+      </Popover>
+    );
+    await userEvent.click(screen.getByText("open"));
+    expect(screen.getByText("panel").parentElement).toHaveClass("right-0");
+  });
+
+  it("defaults to left alignment", async () => {
+    render(<Popover trigger={() => <span>open</span>}>{() => <div>panel</div>}</Popover>);
+    await userEvent.click(screen.getByText("open"));
+    expect(screen.getByText("panel").parentElement).toHaveClass("left-0");
+  });
 });

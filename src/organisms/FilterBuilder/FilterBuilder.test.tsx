@@ -33,6 +33,34 @@ describe("FilterBuilder", () => {
     expect(onApply).toHaveBeenCalledWith([]);
   });
 
+  it("patches one of several rows and keeps only complete between-ranges", async () => {
+    const onApply = vi.fn();
+    // Two date rows seeded: a complete range (2 values) and a half-filled one
+    // (1 value). Patching row A exercises the `r.uid === uid ? … : r` branch
+    // (row B is the untouched `: r` side), and Apply exercises the
+    // `op !== "between" || values.length === 2` between-completeness check.
+    render(
+      <FilterBuilder
+        fields={fields}
+        value={[
+          { field: "createdAt", op: "between", values: ["2026-01-01", "2026-01-31"] },
+          { field: "updatedAt", op: "between", values: ["2026-02-01"] },
+        ]}
+        onApply={onApply}
+      />
+    );
+    await userEvent.click(screen.getByText(/Filters · 2/));
+    // First date input belongs to row A's range start → patch A (B untouched).
+    const dateInputs = document.querySelectorAll<HTMLInputElement>('input[type="date"]');
+    await userEvent.clear(dateInputs[0]);
+    await userEvent.type(dateInputs[0], "2026-01-15");
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    // Only the complete 2-value between range survives; the 1-value one is dropped.
+    expect(onApply).toHaveBeenCalledWith([
+      { field: "createdAt", op: "between", values: ["2026-01-15", "2026-01-31"] },
+    ]);
+  });
+
   it("clears all rows", async () => {
     const onApply = vi.fn();
     render(<FilterBuilder fields={fields} value={[{ field: "type", op: "in", values: ["hub"] }]} onApply={onApply} />);

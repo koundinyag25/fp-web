@@ -71,4 +71,38 @@ describe("Combobox", () => {
     MockIntersectionObserver.last().trigger(true);
     expect(onLoadMore).toHaveBeenCalled();
   });
+
+  it("shows a 'loading more' spinner while paging the next page", async () => {
+    render(<Combobox {...base} hasMore isLoadingMore />);
+    await openIt();
+    expect(await screen.findByText("Loading more…")).toBeInTheDocument();
+  });
+
+  it("renders a custom trigger and reflects open state through it", async () => {
+    const trigger = (open: boolean) => <span>{open ? "Close picker" : "Assign driver"}</span>;
+    render(<Combobox {...base} trigger={trigger} />);
+    const btn = screen.getByRole("button", { name: "Assign driver" });
+    expect(btn).toHaveClass("w-full"); // trigger branch styling, not the select-box default
+    await userEvent.click(btn);
+    expect(screen.getByText("Close picker")).toBeInTheDocument();
+  });
+
+  it("applies invalid styling to the default trigger", () => {
+    render(<Combobox {...base} invalid />);
+    expect(screen.getByRole("button", { name: "Select driver…" })).toHaveClass("border-critical");
+  });
+
+  it("moves the highlight up with ArrowUp and closes on Escape", async () => {
+    const onSelect = vi.fn();
+    render(<Combobox {...base} onSelect={onSelect} />);
+    await openIt();
+    // down to index 1, back up to 0, then Enter picks the first option
+    await userEvent.keyboard("{ArrowDown}{ArrowUp}{Enter}");
+    expect(onSelect).toHaveBeenCalledWith(options[0]);
+
+    await openIt();
+    await screen.findByRole("button", { name: "Asha Rao" });
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("button", { name: "Asha Rao" })).not.toBeInTheDocument();
+  });
 });

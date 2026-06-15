@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { MockIntersectionObserver } from "@/test/mocks";
@@ -29,6 +29,44 @@ describe("Vehicles page", () => {
     await userEvent.type(screen.getByLabelText(/Capacity/), "400");
     await userEvent.click(screen.getByRole("button", { name: "Save vehicle" }));
     await waitFor(() => expect(m.post).toHaveBeenCalledWith("/vehicles", { reg: "KA09XY9999", type: "van", capacity: 400 }));
+  });
+
+  it("requires a registration and a valid capacity before submitting", async () => {
+    renderWithProviders(<Vehicles />);
+    await screen.findByText("KA01AB1234");
+    await userEvent.click(screen.getByRole("button", { name: /New vehicle/ }));
+    // Submit blank: reg empty and capacity empty both fail validation.
+    await userEvent.click(screen.getByRole("button", { name: "Save vehicle" }));
+    expect(screen.getByText("Registration is required.")).toBeInTheDocument();
+    expect(screen.getByText("Capacity must be 0 or more.")).toBeInTheDocument();
+    expect(m.post).not.toHaveBeenCalled();
+  });
+
+  it("passes the debounced search term as the q param", async () => {
+    renderWithProviders(<Vehicles />);
+    await screen.findByText("KA01AB1234");
+    await userEvent.type(screen.getByPlaceholderText(/Search by reg/), "KA01");
+    await waitFor(() =>
+      expect(m.get).toHaveBeenCalledWith("/vehicles", expect.objectContaining({ params: expect.objectContaining({ q: "KA01" }) }))
+    );
+  });
+
+  it("passes applied filters as the filters param", async () => {
+    renderWithProviders(<Vehicles />);
+    await screen.findByText("KA01AB1234");
+    await userEvent.click(screen.getByText("Filters"));
+    await userEvent.click(screen.getByRole("button", { name: /Add filter/ }));
+    // Pick the always-on Created at date field and give it a value.
+    await userEvent.selectOptions(screen.getByDisplayValue("Type"), "createdAt");
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: "2026-01-01" } });
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() =>
+      expect(m.get).toHaveBeenCalledWith(
+        "/vehicles",
+        expect.objectContaining({ params: expect.objectContaining({ filters: expect.stringContaining("createdAt") }) })
+      )
+    );
   });
 
   it("colors each vehicle type", async () => {

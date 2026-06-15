@@ -75,6 +75,16 @@ describe("Allocations page (week calendar)", () => {
     expect(screen.getByRole("heading", { name: "Allocate vehicle" })).toBeInTheDocument();
   });
 
+  it("shows a generic error banner for non-409 failures", async () => {
+    // A server error (not a 409 conflict) takes the fallback message branch.
+    m.post.mockRejectedValueOnce({ response: { status: 500 } });
+    renderWithProviders(<Allocations />);
+    await screen.findByText("KA02CD5678");
+    await allocateCell(`Allocate KA02CD5678 on ${days[1].date}`);
+    expect(await screen.findByText("Could not allocate. Please try again.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Allocate vehicle" })).toBeInTheDocument();
+  });
+
   it("removes an allocation from its chip", async () => {
     renderWithProviders(<Allocations />);
     await screen.findByText("Asha Rao");

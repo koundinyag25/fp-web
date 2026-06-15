@@ -40,6 +40,34 @@ describe("Dashboard", () => {
     expect(screen.getByText("Active vehicles")).toBeInTheDocument();
   });
 
+  it("renders a product dash and no unit suffix for a bare movement", async () => {
+    m.get.mockImplementation((url: string) => {
+      if (url === "/orders/counts") return Promise.resolve({ data: {} });
+      if (url === "/fleet/active") return Promise.resolve({ data: [] });
+      if (url === "/movements")
+        return Promise.resolve({
+          data: [
+            // No productId → product cell falls back to "—"; quantity has no unit.
+            {
+              _id: "mv9",
+              productId: null,
+              fromLocationId: { name: "Central Hub" },
+              toLocationId: { name: "West Depot" },
+              quantity: 42,
+              completedAt: "2026-06-14T09:00:00.000Z",
+            },
+          ],
+        });
+      if (url === "/inventory")
+        return Promise.resolve({ data: { thresholds: { low: 20, warn: 50 }, rows: [] } });
+      return Promise.resolve({ data: {} });
+    });
+    renderWithProviders(<Dashboard />, { route: "/admin" });
+    expect(await screen.findByText("—")).toBeInTheDocument(); // missing product name
+    const qtyCell = screen.getByText("42");
+    expect(qtyCell.textContent).toBe("42"); // no unit suffix
+  });
+
   it("renders the empty/zero state while data is loading", () => {
     m.get.mockReturnValue(new Promise(() => {}));
     renderWithProviders(<Dashboard />, { route: "/admin" });

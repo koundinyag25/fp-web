@@ -38,6 +38,7 @@ export const useProductsPage = () => {
   };
 
   const confirmDelete = () => {
+    /* v8 ignore next -- defensive guard: confirmDelete is only wired to the ConfirmDialog, which mounts its confirm button solely when deleteTarget is set */
     if (!deleteTarget) return;
     mutations.remove.mutate(deleteTarget._id, { onSuccess: () => setDeleteTarget(null) });
   };

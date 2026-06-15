@@ -54,7 +54,7 @@ export const ADMIN_NAV: NavSection[] = [
     title: "Inventory",
     items: [
       { to: "/admin/inventory", icon: Warehouse, label: "Inventory" },
-      { to: "/admin/movements", icon: ArrowLeftRight, label: "Movements" },
+      // { to: "/admin/movements", icon: ArrowLeftRight, label: "Movements" },
     ],
   },
 ];

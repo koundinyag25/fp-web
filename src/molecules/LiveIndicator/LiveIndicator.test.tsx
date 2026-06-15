@@ -14,4 +14,11 @@ describe("LiveIndicator", () => {
     expect(screen.getByText(/reconnecting/i)).toBeInTheDocument();
     expect(screen.getByText(/no pings yet/i)).toBeInTheDocument();
   });
+
+  it("shows CONNECTING while the stream is neither open nor errored", () => {
+    render(<LiveIndicator status="connecting" lastPingAt={{ current: null }} />);
+    const label = screen.getByText(/^connecting…$/i);
+    expect(label).toBeInTheDocument();
+    expect(label).toHaveClass("text-on-surface-variant"); // not the live success colour
+  });
 });

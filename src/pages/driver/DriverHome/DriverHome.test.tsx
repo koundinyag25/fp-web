@@ -129,6 +129,93 @@ describe("DriverHome", () => {
     expect(await screen.findByText("trip detail stub")).toBeInTheDocument();
   });
 
+  it("shows an error fallback when the day can't be reached (FR-SV)", async () => {
+    m.get.mockImplementation((url: string) => {
+      if (url === "/shifts/today") return Promise.reject(new Error("boom"));
+      return Promise.resolve({ data: {} });
+    });
+    render();
+    expect(
+      await screen.findByText(/Could not reach the API/),
+    ).toBeInTheDocument();
+  });
+
+  it("tells an on-shift driver when no trips are assigned for the day", async () => {
+    // Active shift but an empty deliveries list → the empty-state hint, not the grid.
+    mockToday({
+      allocation,
+      activeShift: { _id: "s1", status: "active" },
+      deliveries: [],
+    });
+    render();
+    expect(
+      await screen.findByText(/No trips assigned for today/),
+    ).toBeInTheDocument();
+    // Vehicle still resolves from the allocation.
+    expect(screen.getByText("KA01AB1234")).toBeInTheDocument();
+  });
+
+  it("spins the refresh control while a trips refetch is in flight", async () => {
+    // First load resolves; the manual refetch is left pending so isFetching
+    // (→ vm.refreshing) stays true and the refresh icon takes its spin class.
+    let todayCalls = 0;
+    m.get.mockImplementation((url: string) => {
+      if (url === "/drivers/d1/stats")
+        return Promise.resolve({
+          data: { sinceDays: 90, completed: 0, failed: 0, total: 0 },
+        });
+      if (url === "/shifts/today") {
+        todayCalls += 1;
+        const payload = {
+          data: {
+            date: "2026-06-15",
+            canStart: false,
+            allocation,
+            activeShift: { _id: "s1", status: "active" },
+            deliveries: [],
+            orders: [],
+          },
+        };
+        return todayCalls === 1
+          ? Promise.resolve(payload)
+          : new Promise(() => {});
+      }
+      return Promise.resolve({ data: {} });
+    });
+    render();
+    const refresh = await screen.findByRole("button", {
+      name: "Refresh trips",
+    });
+    expect(refresh).not.toHaveClass("animate-spin");
+    await userEvent.click(refresh);
+    await waitFor(() => expect(refresh).toHaveClass("animate-spin"));
+  });
+
+  it("falls back to a dash when an active shift exposes no vehicle", async () => {
+    // Active shift, no allocation, and no shift vehicle → reg renders as "—".
+    mockToday({
+      allocation: null,
+      activeShift: { _id: "s1", status: "active" },
+      deliveries: [],
+    });
+    render();
+    await screen.findByText(/No trips assigned for today/);
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
+  it("ends an active shift when End shift is tapped", async () => {
+    mockToday({
+      allocation,
+      activeShift: { _id: "s1", status: "active" },
+      deliveries: [],
+    });
+    render();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "End shift" }),
+    );
+    await waitFor(() => expect(m.post).toHaveBeenCalledWith("/shifts/s1/end"));
+  });
+
   it("shows the active shift's trips with no allocation today (stale cross-day shift)", async () => {
     // A shift left open from a previous day has no allocation for `today`, but
     // the fleet map still shows it active — so the driver must see their trips
@@ -143,6 +230,8 @@ describe("DriverHome", () => {
     expect(await screen.findByText("South Bay Hub")).toBeInTheDocument();
     expect(screen.getByText("3GBA029")).toBeInTheDocument(); // shift vehicle, no allocation
     expect(screen.queryByText(/Contact your admin/)).toBeNull();
-    expect(screen.getByRole("button", { name: "End shift" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "End shift" }),
+    ).toBeInTheDocument();
   });
 });
