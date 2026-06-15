@@ -1,7 +1,5 @@
 # fp-web
-
-React + TypeScript + Vite frontend for the fleet tracking platform.
-Server state via TanStack React Query; map via Leaflet; live updates via SSE.
+fp-web(https://fleetpanda-nowk5.ondigitalocean.app/) is a mini fleet tracking frontend built for demonstration and testing purposes. it implements the core features of a fleet tracking platform in a simple and modular way.
 
 ## Run locally
 
@@ -15,20 +13,33 @@ Start the backend (`../fp-server`) first so the API and SSE stream are available
 
 Build (what App Platform runs): `npm run build` → `dist/`.
 
+## Tests
+
+```bash
+npm test                 # Vitest (jsdom + React Testing Library)
+npm run test:watch       # watch mode
+npm run test:coverage    # coverage report → coverage/ (text + HTML + lcov)
+```
+
 ## Structure
+
+Atomic layering with downward-only imports — see [STRUCTURE.md](STRUCTURE.md)
+for the full manifest.
 
 ```
 src/
-├─ main.tsx              providers: React Query + Router
-├─ App.tsx               routes: / (personas), /admin, /driver/:driverId
-├─ lib/                  api (axios) + SSE url, queryClient
-├─ components/FleetMap   live map: /fleet/active snapshot + SSE pings
-└─ pages/                Home, admin/AdminDashboard, driver/DriverHome
+├─ main.tsx                providers: React Query + Router
+├─ App.tsx                 routes: / (personas), /admin/*, /driver/:driverId
+├─ utils/                  http (axios) client, SSE url, date helpers
+├─ lib/services/<entity>/  API modules (the only callers of utils/http)
+├─ hooks/<module>/         React Query data hooks
+├─ atoms/ molecules/ organisms/   atomic UI (organisms/FleetMap = live map)
+└─ pages/                  admin/* + driver/* screens (co-located view-model hooks)
 ```
 
-`DriverHome` already drives the core loop end-to-end (start shift → send GPS /
-auto-drive → complete/fail → end shift). The admin master-data, order,
-allocation, inventory and movement screens build out from here.
+The admin console (dashboard, master-data CRUD, orders, allocations, inventory,
+movements, live fleet map) and the driver app are built; `DriverHome` drives the
+core loop end-to-end (start shift → send GPS / auto-drive → complete/fail → end shift).
 
 ## Notes
 
