@@ -3,11 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { renderWithProviders } from "@/test/utils";
 
-vi.mock("@/utils/http", () => ({ http: { get: vi.fn() } }));
+vi.mock("@/utils/http", () => ({ http: { get: vi.fn(), patch: vi.fn() } }));
 import { http } from "@/utils/http";
 import Inventory from "./Inventory";
 
-const m = http as unknown as { get: Mock };
+const m = http as unknown as { get: Mock; patch: Mock };
 
 const inventory = {
   thresholds: { low: 20, warn: 50 },
@@ -35,6 +35,7 @@ const inventory = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  m.patch.mockResolvedValue({ data: {} });
   m.get.mockImplementation((url: string) => {
     if (url === "/inventory") return Promise.resolve({ data: inventory });
     if (url === "/products")
@@ -117,6 +118,29 @@ describe("Inventory dashboard", () => {
     // The unit-less Diesel cell shows just the number, no "litre" suffix beside 80.
     const dieselCell = screen.getByText("80");
     expect(dieselCell.textContent).toBe("80");
+  });
+
+  it("adjusts stock: clicking a cell opens the modal and PATCHes the new qty", async () => {
+    renderWithProviders(<Inventory />);
+    await screen.findByText("North Terminal");
+
+    // Click the Diesel @ Central Hub cell (qty 80) → opens the Adjust stock modal.
+    await userEvent.click(screen.getByText("80"));
+    expect(await screen.findByText("Adjust stock")).toBeInTheDocument();
+
+    const input = screen.getByRole("spinbutton");
+    expect(input).toHaveValue(80); // prefilled with current qty
+    await userEvent.clear(input);
+    await userEvent.type(input, "200");
+    await userEvent.click(screen.getByRole("button", { name: "Save stock" }));
+
+    await waitFor(() =>
+      expect(m.patch).toHaveBeenCalledWith("/inventory", {
+        locationId: "h1",
+        productId: "p1",
+        quantity: 200,
+      })
+    );
   });
 
   it("offers Location and Product filters via the shared FilterBuilder (FR-IN-3)", async () => {

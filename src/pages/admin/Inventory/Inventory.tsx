@@ -3,6 +3,7 @@ import { SearchInput } from "@/atoms/SearchInput";
 import { PageHeader } from "@/molecules/PageHeader";
 import { FilterBuilder } from "@/organisms/FilterBuilder";
 import { Table } from "@/organisms/Table";
+import { AdjustStockModal } from "./AdjustStockModal";
 import { getInventoryColumns } from "./inventory.config";
 import { useInventoryPage } from "./useInventoryPage";
 
@@ -14,7 +15,10 @@ import { useInventoryPage } from "./useInventoryPage";
  */
 const Inventory = () => {
   const vm = useInventoryPage();
-  const columns = useMemo(() => getInventoryColumns(vm.productCols), [vm.productCols]);
+  const columns = useMemo(
+    () => getInventoryColumns(vm.productCols, vm.openAdjust),
+    [vm.productCols, vm.openAdjust],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -44,6 +48,13 @@ const Inventory = () => {
         isLoading={vm.isLoading}
         emptyMessage="No inventory matches these filters."
         minWidth={Math.max(640, 220 + vm.productCols.length * 130)}
+      />
+
+      <AdjustStockModal
+        target={vm.editing}
+        onClose={vm.closeAdjust}
+        onSave={vm.saveAdjust}
+        saving={vm.saving}
       />
     </div>
   );
