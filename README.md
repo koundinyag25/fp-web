@@ -1,30 +1,68 @@
 # fp-web
-fp-web(https://fleetpanda-nowk5.ondigitalocean.app/) is a mini fleet tracking frontend built for demonstration and testing purposes. it implements the core features of a fleet tracking platform in a simple and modular way.
+
+Frontend for a **fleet tracking platform** — a desktop-first **admin console** and a
+mobile-first **driver app** over one shared API, with a live fleet map driven by
+server-sent GPS updates. Built with React + TypeScript; server state via TanStack
+React Query, map via Leaflet, real-time via SSE.
+
+**Live demo:** https://fleetpanda-nowk5.ondigitalocean.app/
+(pick a persona on the landing page — `/admin` for the dispatcher console,
+`/driver/:driverId` for a driver's shift). Backend: [`../fp-server`](https://github.com/koundinyag25/fp-server).
+
+**Demo video (Loom):** https://www.loom.com/share/e32261d7c0664f8294ab386afb18b386
+
+## Features
+
+**Admin (`/admin`)**
+- **Dashboard** — fleet/inventory metrics at a glance.
+- **Master data** — CRUD + search/filter for Locations, Products, Drivers, Vehicles (FR-MD).
+- **Orders** — create, assign to a driver, status filter + counts (FR-OM).
+- **Allocations** — week calendar of vehicle↔driver↔date, with the double-booking **409** error flow (FR-VA).
+- **Live Fleet Map** — every active vehicle as a marker, smooth SSE-driven motion, filter by driver/vehicle/status (FR-LM).
+- **Inventory** — per-location/product balances with low-stock colour bands (FR-IN).
+
+**Driver (`/driver/:driverId`)**
+- **Shift** — today's allocation + assigned deliveries; start/end shift (FR-SV, FR-DL).
+- **Simulated GPS** — "Send GPS update" (one step) and "Start driving" (auto-stream), broadcast live to the admin map (FR-DM).
+- **Trip detail** — the traveled GPS route drawn on the map (FR-MV-2).
+
+> Persona is chosen by route — no auth (FRD §8.6).
+
+## Tech stack
+
+React 18 · TypeScript · Vite · TanStack React Query · React Router 6 · Leaflet /
+react-leaflet · axios · dayjs · Tailwind CSS · lucide-react · `react-window`
+(list virtualization for large fleets).
 
 ## Run locally
 
+Uses **Yarn** (a `yarn.lock` is committed). Start the backend
+([`../fp-server`](https://github.com/koundinyag25/fp-server)) first so the API and SSE stream are live.
+
 ```bash
 cp .env.example .env     # VITE_API_BASE=/api (default)
-npm install
-npm run dev              # http://localhost:5173 — /api is proxied to localhost:8080
+yarn install
+yarn dev                 # http://localhost:5173 — /api is proxied to localhost:8080
 ```
 
-Start the backend (`../fp-server`) first so the API and SSE stream are available.
+Build (what App Platform runs): `yarn build` → `dist/` · preview with `yarn preview`.
 
-Build (what App Platform runs): `npm run build` → `dist/`.
+## Tests & coverage
 
-## Tests
+Vitest + React Testing Library (jsdom). Unit (utils, hooks), component (forms,
+filters, map), and integration (page flows) tests — colocated per unit, ~330+ tests.
 
 ```bash
-npm test                 # Vitest (jsdom + React Testing Library)
-npm run test:watch       # watch mode
-npm run test:coverage    # coverage report → coverage/ (text + HTML + lcov)
+yarn test                # run once
+yarn test:watch          # watch mode
+yarn test:coverage       # coverage report → coverage/ (text + HTML + lcov)
+yarn typecheck           # tsc --noEmit
 ```
 
-## Structure
+## Project structure
 
-Atomic layering with downward-only imports — see [STRUCTURE.md](STRUCTURE.md)
-for the full manifest.
+Atomic layering with **downward-only imports** (`utils → services → hooks → atoms →
+molecules → organisms → pages`). Full manifest in [STRUCTURE.md](STRUCTURE.md).
 
 ```
 src/
@@ -37,12 +75,14 @@ src/
 └─ pages/                  admin/* + driver/* screens (co-located view-model hooks)
 ```
 
-The admin console (dashboard, master-data CRUD, orders, allocations, inventory,
-movements, live fleet map) and the driver app are built; `DriverHome` drives the
-core loop end-to-end (start shift → send GPS / auto-drive → complete/fail → end shift).
+## Documentation
 
-## Notes
+Project docs live in [`docs/`](docs/):
 
-- Persona is route-based, no auth (FRD §8.6).
-- In production the app is served same-origin as the API behind App Platform
-  ingress, so `VITE_API_BASE=/api`.
+| Doc | What |
+|---|---|
+| [COMPONENTS.md](docs/COMPONENTS.md) | Component registry + screen plan |
+| [STATE_MANAGEMENT.md](docs/STATE_MANAGEMENT.md) | React Query / state strategy |
+| [DECISIONS.md](docs/DECISIONS.md) | Architecture decision records |
+| [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) | Design tokens & theme |
+| [PATTERNS.md](docs/PATTERNS.md) | Code & screen-porting conventions |
