@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# yarn is the package manager (packageManager field + yarn.lock); never commit npm's lockfile
+package-lock.json
 .env
 .env.local
 *.log
